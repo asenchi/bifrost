@@ -1,0 +1,82 @@
+# NOTES on implementation
+
+Use our own install of redis, part of installation. Listens on non-standard port.
+Store configuration in Redis, but persist that in a dump somewhere.
+The rest of the information in Redis should be easily reproduced/repopulated.
+
+Implement an accrual failure detector, HDY04.pdf
+Types of state we want to communicate:
+    NodeState:
+        Two default keys: id__, timestamp__
+        Generally a one key/value message, ex: {'load_avg': '0.1, 0.3, 0.1'}
+
+    AppState:
+        Two default keys: id__, timestamp__
+        Sends a dict {'redis_conf': ('md5sum of redis.conf', VERSION)}
+
+# EXAMPLE: SEND A NEW REDIS CONFIG
+# client calls server with new redis.conf (production component)
+# client auth's to new server (setting a lock on component)
+# client takes config, creates *State object
+# client serializes object to tnetstrings, sends to server
+# Server takes config, hashes, compares with current version
+# Creates version/generation for new config
+# Moves current config out of way, stops service, moves new config in.
+# Verifies startup (and data?)
+# Server verifies it's running with version/generation created earlier
+# Adds state information to local db (version/generation for config file)
+# Responds to client with "ok" message.
+# Server sends messages to peer with new version/generation of config file.
+# Peers ack that they don't have it
+# Server creates *State object, serializes and sends to peers who requested it
+
+NAMETUPLES!!!!
+http://docs.python.org/dev/library/collections.html#collections.namedtuple
+http://docs.python.org/dev/library/collections.abc.html#abstract-base-classes
+http://docs.python.org/dev/library/abc.html#module-abc
+http://code.activestate.com/recipes/577629-namedtupleabc-abstract-base-class-mix-in-for-named/
+
+### Gossip messages/objects.
+# http://wiki.apache.org/cassandra/ArchitectureGossip
+
+
+class ApplicationState(PayloadDict):
+    """Taken from above link:
+
+    Consists of state and version number and represents a state of single
+    "component" or "element" within Cassandra. For instance application state
+    for "load information" could be (5.2, 45), which means that node load is 5.2
+    at version 45. Similarly a node that is bootstrapping would have
+    "bootstrapping" application state: (bxLpassF3XD8Kyks, 56) where first
+    one is bootstrap token, and the second is version. Version number is
+    shared by application states and HeartBeatState to guarantee ordering
+    and can only grow.
+    """
+    pass
+
+class PingState(object):
+    """Constant pinging object that carries two values:
+
+    Generation: Number established on installation. Only increments with
+    restarts.
+    Version: Shared with ApplicationState.version. Guarantees ordering.
+    """
+    pass
+
+# Consider these:
+# EndPointState
+# 
+# Includes all ApplicationStates and HeartBeatState for certain endpoint (node).
+# EndPointState can include only one of each type of ApplicationState, so if
+# EndPointState already includes, say, load information, new load information will
+# overwrite the old one. ApplicationState version number guarantees that old value
+# will not overwrite new one.
+
+
+# endPointStateMap
+# 
+# Internal structure in Gossiper that has EndPointState for all nodes (including
+# itself) that it has heard about.
+
+class PeerStateMap(IterableUserDict):
+    pass

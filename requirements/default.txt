@@ -1,0 +1,2 @@
+tnetstring==0.2.0
+pyzmq==2.1.7
